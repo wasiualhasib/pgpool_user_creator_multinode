@@ -1,0 +1,36 @@
+- name: PostgreSQL , repmgr and Barman Configuration for streaming replication
+  hosts: all
+  become: true
+  vars:
+    date: "{{ lookup('pipe', 'date +%Y%m%d-%H%M') }}"
+  vars_files:
+   - node.yml
+  tasks:
+  - name: Clear content
+    replace:
+     path: /etc/repmgr/12/repmgr.conf
+     after: "# BEGIN ANSIBLE"
+     regexp: '^(.+)$'
+     replace: ""
+    when: ansible_nodename != "barman"
+
+  - name: Clear clear blank
+    replace:
+     path: /etc/repmgr/12/repmgr.conf
+     after: "# BEGIN ANSIBLE"
+     regexp: '^\n'
+     replace: ''
+    when: ansible_nodename != "barman"
+
+  - name: Stop postgresql
+    service:
+     name: postgresql-12
+     state: stopped
+    when: ansible_nodename != "barman"
+
+  - name: Remove directory
+    file: 
+     path: /var/lib/pgsql/12/data
+     state: absent
+    when: ansible_nodename != "barman"
+

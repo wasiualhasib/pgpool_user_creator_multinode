@@ -1,0 +1,10 @@
+  - name: repmgr start for node4 | REPMGR NODE4 START
+    become: true
+    become_user: root
+    service:
+     name: repmgr{{ pg_version }}
+     state: started
+     enabled: yes
+    when: ansible_nodename == 'pgbackup'
+
+

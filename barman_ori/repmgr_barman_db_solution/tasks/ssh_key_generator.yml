@@ -1,0 +1,25 @@
+  - name: SSH key generator for  | REPMGR NODE1 START
+    become: true
+    become_user: root
+    command: 
+    when: ansible_nodename == 'node1'
+  - name: SSH key generator for  | REPMGR NODE1 START
+    become: true
+    become_user: root
+    command: 
+    when: ansible_nodename == 'node2'
+  - name: SSH key generator for  | REPMGR NODE1 START
+    become: true
+    become_user: root
+    command: 
+    when: ansible_nodename == 'node3'
+  - name: SSH key generator for  | REPMGR NODE1 START
+    become: true
+    become_user: root
+    command: 
+    when: ansible_nodename == 'barman'
+  - name: SSH key generator for  | REPMGR NODE1 START
+    become: true
+    become_user: root
+    command: 
+    when: ansible_nodename == 'witness'

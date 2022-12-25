@@ -1,0 +1,20 @@
+# ********************* repmgr Installation except barman server || INSTALL REPMGR ******************************************
+
+  - name: Install repmgr repository
+    get_url: 
+     url: https://download.postgresql.org/pub/repos/yum/reporpms/EL-8-x86_64/pgdg-redhat-repo-latest.noarch.rpm
+     dest: ./
+    when: ansible_nodename != "pgbackup"
+
+  - name: Insall repmgr package
+    yum: 
+     name: repmgr{{ pg_version }}
+     state: present
+    when: ansible_nodename != "pgbackup"
+
+  - name: Ansible file check
+    stat:
+     path: /etc/repmgr/{{ pg_version }}/repmgr.conf
+    register: repmgr_file_check
+    when: ansible_nodename != "pgbackup"
+

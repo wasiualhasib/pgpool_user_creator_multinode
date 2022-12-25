@@ -1,0 +1,407 @@
+- name: PostgreSQL , repmgr and Barman Configuration for streaming replication
+  hosts: all
+  become: true
+  vars_files:
+   - node.yml
+  tasks:
+#****************************************Gather System Information***********************************
+  - name: Host Information
+    debug:
+     msg: "{{ ansible_nodename }}"
+
+#***************************************Set Host for IP ***********************************
+#  - name: Set Hostname
+#    hostname: name=node1
+#    when: result.stdout != "node1" and ansible_ssh_host == "192.168.43.21"
+#
+#  - name: Set Hostname
+#    hostname: name=node2
+#    when: result.stdout != "node2" and ansible_ssh_host == "{{ node2ip }}"
+#
+#  - name: Set Hostname
+#    command: name=barman
+#    when: result.stdout != "barman" and ansible_ssh_host == "{{ barman }}"
+
+# ****************************************PostgreSQL Repository and Installation**********************************************
+  - name: Host file entry
+    become_user: root 
+    lineinfile:
+     dest: /etc/hosts
+     line: "{{ item.line }}"
+    loop:
+    - { line: '{{node1dns}}'}
+    - { line: '{{node2dns}}'}
+    - { line: '{{node3dns}}'}
+
+     
+  - name: Install postgres  repository
+    dnf:
+     name: https://download.postgresql.org/pub/repos/yum/reporpms/EL-8-x86_64/pgdg-redhat-repo-latest.noarch.rpm
+     state: present 
+    when: ansible_nodename != "barman"
+
+  - name: postgres default module disabled
+    command: dnf -qy module disable postgresql
+    when: ansible_nodename != "barman"
+
+  - name: remove data directory if exists
+    become: true
+    file: path=/var/lib/pgsql/{{ pg_version }}/data state=absent
+    ignore_errors: yes
+    when: ansible_nodename != "barman"
+
+  - name: install postgresql server and contrib
+    command: dnf install postgresql{{ pg_version }}-server postgresql{{ pg_version }}-contrib
+    when: ansible_nodename != "barman"
+
+  - name: create data directory at node1
+    become: true
+    become_user: root
+    command: /usr/pgsql-{{ pg_version }}/bin/postgresql-{{ pg_version }}-setup initdb
+    when: ansible_nodename == "node1"
+
+# ************************************** PostgreSQL postgresql.conf file configuration******************************
+  - name: Configure postgresql.conf file
+    become: true
+    become_user: postgres
+    blockinfile:
+     dest: /var/lib/pgsql/{{ pg_version }}/data/postgresql.conf
+     block: |
+        listen_addresses='*'
+        port= {{ pg_port }}
+        max_wal_senders = 10
+        max_replication_slots = 10
+        wal_level = 'replica'
+        wal_log_hints = on
+        hot_standby = on
+        archive_mode = on
+        shared_preload_libraries = 'repmgr'
+        archive_command = '/usr/bin/barman-wal-archive  {{barman1ip}} pg %p'
+        #synchronous_standby_names = 'barman_receive_wal' #This need to enable for barman steraming replication
+        #archive_command='rsync -a %p  barman@192.168.43.23:/var/lib/barman/pg/incoming/%f'
+    when: ansible_nodename == "node1"
+
+
+
+
+
+# ****************************************PostgreSQL pg_hba.conf file configuration**********************************************
+
+  - name: add new configuration to "pg_hba.conf"
+    blockinfile:
+     dest: /var/lib/pgsql/{{ pg_version }}/data/pg_hba.conf
+     block: |
+         local   replication     all                                     peer
+         local   postgres        postgres                                trust
+         host    replication     all             127.0.0.1/32            ident
+         host    replication     all             ::1/128                 ident
+         host    replication     repmgr            {{subnet}}              trust
+         host    replication     streaming_barman  {{subnet}}            trust
+
+         local  repmgr           repmgr                                  trust
+         host   repmgr           repmgr          127.0.0.1/32            trust
+         host   repmgr           repmgr            {{subnet}}            trust
+         host   all              barman            {{subnet}}            trust
+         host   replication      streaming_barman  {{subnet}}            trust
+         host   all              all             0.0.0.0/0               reject
+    when: ansible_nodename == "node1"
+
+
+# **************************************** DTABASE  enable and starting *****************************************
+  - name: OnBoot enable postgresql
+    become: true
+    command: systemctl enable postgresql-{{ pg_version }}
+    when: ansible_nodename == "node1"
+    notify: start_postgres
+
+
+  - name: Wait for ready postgres
+    wait_for:
+     timeout: 10
+    delegate_to: localhost
+    when: ansible_nodename == "node1"
+
+# **************************************** DTABASE  Repmgr DB and User Creation *****************************************
+
+  - name: repmgr user creation
+    command: createuser --superuser "{{repmgr_user}}" -w
+    become: true
+    become_user: postgres
+    when: ansible_nodename == "node1"
+
+  - name: repmgr db creation
+    become: true
+    become_user: postgres
+    command: createdb --owner="{{repmgr_user}}" "{{repmgr_db}}"
+    when: ansible_nodename == "node1"
+
+  - name: repmgr default search path
+    become: true
+    become_user: postgres
+    command: psql -c "ALTER USER {{repmgr_user}} SET search_path TO {{repmgr_db}}, public;"
+    when: ansible_nodename == "node1"
+ 
+# **************************************** barman  DB and user creation  ********************************************
+  - name: barman user creation 
+    become: true
+    become_user: postgres
+    command: createuser -s -w "{{barman_user}}"
+    when: ansible_nodename == "node1"
+ 
+
+  - name: Set privileges to barman user
+    become: true
+    become_user: postgres
+    command: psql -c "GRANT EXECUTE ON FUNCTION pg_start_backup(text, boolean, boolean) to {{barman_user}};
+                      GRANT EXECUTE ON FUNCTION pg_stop_backup() to {{barman_user}};
+                      GRANT EXECUTE ON FUNCTION pg_stop_backup(boolean, boolean) to {{barman_user}};
+                      GRANT EXECUTE ON FUNCTION pg_switch_wal() to {{barman_user}};
+                      GRANT EXECUTE ON FUNCTION pg_create_restore_point(text) to {{barman_user}};
+                      GRANT pg_read_all_settings TO {{barman_user}};
+                      GRANT pg_read_all_stats TO {{barman_user}}; "
+    when: ansible_nodename == "node1"
+ 
+  - name: Steraming barman user creation
+    become: true
+    become_user: postgres
+    command: createuser -w --replication "{{barman_streaming_user}}"
+    when: ansible_nodename == "node1"
+   
+
+ 
+# **************************************** repmgr Installation except barman server ******************************************
+
+  - name: Install repmgr package
+    command : wget https://download.postgresql.org/pub/repos/yum/reporpms/EL-8-x86_64/pgdg-redhat-repo-latest.noarch.rpm
+    when: ansible_nodename != "barman"
+
+  - name: Insall repmgr
+    yum: name=repmgr{{ pg_version }}
+    when: ansible_nodename != "barman"
+
+  - name: Ansible file check
+    stat:
+     path: /etc/repmgr/{{ pg_version }}/repmgr.conf
+    register: repmgr_file_check  
+    when: ansible_nodename != "barman"
+  
+
+# **************************************** repmgr basic configuration node 1 ********************************************
+
+  - name: Configure repmgr.conf primary node1  basic configuration
+    become: true
+    become_user: root
+    blockinfile:
+     dest: /etc/repmgr/{{ pg_version }}/repmgr.conf
+     marker: "# {mark} ANSIBLE MANAGED BLOCK insertion 1"
+     block: |
+        #************** repmgr basic configuration
+        node_id={{node1id}}
+        node_name={{node1name}}
+        conninfo='host={{node1ip}} user=repmgr dbname=repmgr connect_timeout=2'
+        data_directory='/var/lib/pgsql/{{ pg_version }}/data'
+    when: ansible_nodename == "node1"
+
+# **************************************** repmgr basic configuration node 2 ********************************************
+
+  - name: Configure repmgr.conf standby node2 basic configuration
+    become: true
+    become_user: root
+    blockinfile:
+     dest: /etc/repmgr/{{ pg_version }}/repmgr.conf
+     marker: "# {mark} ANSIBLE MANAGED BLOCK insertion 1"
+     block: |
+        #************** repmgr basic configuration
+        node_id={{node2id}}
+        node_name={{node2name}}
+        conninfo='host={{node2ip}} user=repmgr dbname=repmgr connect_timeout=2'
+        data_directory='/var/lib/pgsql/{{ pg_version }}/data'
+    when: ansible_nodename == "node2"
+
+ 
+# **************************************** repmgr auto failover configuration ********************************************
+
+  - name: Configure repmgr.conf  auto failover configuration
+    become: true
+    blockinfile:
+     dest: /etc/repmgr/{{ pg_version }}/repmgr.conf
+     marker: "# {mark} ANSIBLE MANAGED BLOCK insertion 2"
+     block: |
+        #*************** for automatic failover
+        failover=automatic
+        use_replication_slots=yes
+        promote_command='/usr/pgsql-{{ pg_version }}/bin/repmgr standby promote -f /etc/repmgr/{{ pg_version }}/repmgr.conf --siblings-follow  --log-to-file'
+        follow_command='/usr/pgsql-{{ pg_version }}/bin/repmgr standby follow -f /etc/repmgr/{{ pg_version }}/repmgr.conf --log-to-file --upstream-node-id=%n'
+        #****************** for connect checking command
+        connection_check_type='ping'
+        monitor_interval_secs=10
+        monitoring_history=yes
+        reconnect_attempts=10
+        reconnect_interval=10
+        primary_visibility_consensus=true
+        standby_disconnect_on_failover=true
+        log_status_interval=60
+        #******************* for system command
+        repmgrd_service_start_command='sudo /usr/bin/systemctl start repmgr-{{ pg_version }}.service'
+        repmgrd_service_stop_command='sudo /usr/bin/systemctl stop repmgr-{{ pg_version }}.service'
+        service_start_command='sudo /usr/bin/systemctl start postgresql-{{ pg_version }}.service'
+        service_stop_command='sudo /usr/bin/systemctl stop postgresql-{{ pg_version }}.service'
+        service_restart_command='sudo /usr/bin/systemctl restart postgresql-{{ pg_version }}.service'
+        service_reload_command='sudo /usr/bin/systemctl reload postgresql-{{ pg_version }}.service'
+        #******************* others
+        pg_bindir='/usr/pgsql-{{ pg_version }}/bin'
+        log_file='/var/log/repmgr/repmgr.log'
+        #******************* for marman configuration
+        barman_host='barman@{{barman1ip}}'
+        barman_server='pg'
+        restore_command='/usr/bin/barman-wal-restore -U barman "{{barman1ip}}" pg %f %p'
+
+    when: ansible_nodename != "barman"
+    notify: repmgr_configured
+ 
+# *************************************** Sync replication with Barman ********************************
+
+  - name:   Synchronous_standby_name apply for sync
+    become: true
+    become_user: postgres
+    lineinfile:
+     path: /var/lib/pgsql/{{ pg_version }}/data/postgresql.conf
+     regexp: "^#synchronous_standby_names = 'barman_receive_wal'"
+     line: "synchronous_standby_names = 'barman_receive_wal'"
+    when: ansible_nodename == "node1"
+    notify: restart_postgres
+
+# **************************************** Barman configuration ********************************************
+  - name: Barman Installation
+    yum:
+     name: ["barman","barman-cli"]
+
+  - name: Barman global file configuration
+    become: true
+    blockinfile:
+     dest: /etc/barman.conf
+     block: |
+        ;*****************************Modify By User *************************" }
+        barman_user = barman
+        barman_home = /var/lib/barman
+        log_file = /var/log/barman/barman.log
+        compression = gzip
+        retention_policy = RECOVERY WINDOW OF 4 WEEKS
+    when: ansible_nodename == "barman"
+
+  - name: Barman pg file create
+    delegate_to: "{{barman1ip}}"
+    become: true
+    file:
+     path: /etc/barman.d/pg.conf
+     state: touch
+    when: ansible_nodename == "barman"
+
+  - name: Barman server configure
+    delegate_to: "{{barman1ip}}"
+    become: true
+    become_user: root
+    blockinfile:
+     dest: /etc/barman.d/pg.conf
+     block: |
+        ; ******************Modified by user***************
+        description =  Example of PostgreSQL Database (Streaming-Only)
+        streaming_conninfo = host={{ node1ip }} user=streaming_barman
+        streaming_backup_name = barman_streaming_backup
+        slot_name = barman_slot
+        create_slot = auto
+        backup_method = postgres
+        streaming_archiver_name = barman_receive_wal
+        streaming_archiver_batch_size = 50
+        path_prefix = /usr/pgsql-{{ pg_version }}/bin
+        archiver=on
+    when: ansible_nodename == "barman"
+
+# **************************************** Activating  Barman  ********************************************
+  
+  - name: Remove previouse pg data
+    become: true
+    become_user: barman
+    file:
+     path: /var/lib/barman/pg
+     state: absent
+
+
+  - name:  barman slot create
+    become: true
+    become_user: barman
+    command: barman receive-wal --create-slot pg
+    when: ansible_nodename == "barman"
+
+  - name: barman switch wal log
+    become: true
+    become_user: barman
+    command: barman switch-xlog --force --archive pg
+    when: ansible_nodename == "barman"
+
+  - name: Create physical_one physical slot for barman if doesn't exist
+    become_user: postgres
+    postgresql_slot:
+     slot_name: barman_slot
+     db: postgres
+    ignore_errors: yes
+    when: ansible_nodename == "node1"
+
+  - name: wait for creating slot automatically for 15 second
+    wait_for:
+     timeout: 15
+    when: ansible_nodename == "barman"
+
+  - name: barman cron run
+    become: true
+    become_user: barman
+    ignore_errors: yes
+    command: barman cron
+    when: ansible_nodename == "barman"
+
+  - name: barman cron run
+    become: true
+    become_user: barman
+    ignore_errors: yes
+    command: barman check pg
+    when: ansible_nodename == "barman"
+    notify: barman_backup
+
+# **************************************** Replication Configuration ********************************************
+  - name:   primary register
+    become: true
+    become_user: postgres
+    command: /usr/pgsql-{{ pg_version }}/bin/repmgr -f /etc/repmgr/{{ pg_version }}/repmgr.conf  primary register
+    when: ansible_nodename == "node1"
+
+  - name: repmgr standby clone form primary
+    become: true
+    become_user: postgres
+    command: /usr/pgsql-{{ pg_version }}/bin/repmgr -f /etc/repmgr/{{ pg_version }}/repmgr.conf  -h "{{node1ip}}" -d repmgr -U repmgr standby clone
+    when: ansible_nodename == "node2"
+    notify: start_postgres
+
+  handlers:
+  - name: start_postgres
+    become: true
+    command: systemctl start postgresql-{{ pg_version }} 
+    ignore_errors: yes
+    when: ansible_nodename == "node1"
+
+  - name: repmgr_configured
+    become: true
+    become_user: postgres
+    ignore_errors: yes
+    command: systemctl restart repmgr-{{ pg_version }}.service
+
+  - name: restart_postgres
+    become: true
+    command: systemctl restart postgresql{{ pg_version }}
+    ignore_errors: yes
+
+  - name: barman_backup
+    become: true
+    become_user: barman
+    ignore_errors: yes
+    command: barman backup pg
+    when: ansible_nodename == "barman"

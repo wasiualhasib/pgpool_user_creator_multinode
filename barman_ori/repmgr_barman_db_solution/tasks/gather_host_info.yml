@@ -1,0 +1,5 @@
+#****************************************Gather System Information***********************************
+  - name: Host Information
+    debug:
+     msg: "{{ ansible_nodename }}"
+

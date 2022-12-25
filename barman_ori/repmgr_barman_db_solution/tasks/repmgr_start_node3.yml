@@ -1,0 +1,11 @@
+  - name: repmgr start for node3 | REPMGR NODE3 START
+    become: true
+    become_user: root
+    service:
+     name: repmgr{{ pg_version }}
+     state: started
+     enabled: yes
+    ignore_errors: yes
+    when: ansible_nodename == 'node3'
+
+

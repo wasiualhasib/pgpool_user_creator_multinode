@@ -1,0 +1,7 @@
+# **************************************** Primary Registration ********************************************
+  - name:   primary node1 register | PRIMARY REGISTER
+    become: true
+    become_user: postgres
+    command: /usr/pgsql-{{ pg_version }}/bin/repmgr -f /etc/repmgr/{{ pg_version }}/repmgr.conf  primary register
+    when: ansible_nodename == "node1"
+

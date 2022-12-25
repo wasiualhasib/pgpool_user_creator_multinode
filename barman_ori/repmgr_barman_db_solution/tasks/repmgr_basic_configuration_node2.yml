@@ -1,0 +1,17 @@
+
+# **************************************** repmgr basic configuration node 2 ********************************************
+
+  - name: Configure repmgr.conf standby node2 basic configuration | REPMGR NODE2 BASIC CONF
+    become: true
+    become_user: root
+    blockinfile:
+     dest: /etc/repmgr/{{ pg_version }}/repmgr.conf
+     marker: "# {mark} ANSIBLE MANAGED BLOCK insertion 1"
+     block: |
+        #************** repmgr basic configuration
+        node_id={{node2id}}
+        node_name={{node2name}}
+        conninfo='host={{node2ip}} user=repmgr dbname=repmgr connect_timeout=2'
+        data_directory='/var/lib/pgsql/{{ pg_version }}/data'
+    when: ansible_nodename == "node2"
+

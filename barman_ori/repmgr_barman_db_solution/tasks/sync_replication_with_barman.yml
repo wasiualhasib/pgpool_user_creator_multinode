@@ -1,0 +1,14 @@
+
+# *************************************** Sync replication with Barman ********************************
+
+  - name:   Synchronous_standby_name apply for sync || HANDLER
+    become: true
+    become_user: postgres
+    lineinfile:
+     path: /var/lib/pgsql/{{ pg_version }}/data/postgresql.conf
+     regexp: "^#synchronous_standby_names = 'barman_receive_wal'"
+     line: "synchronous_standby_names = 'barman_receive_wal'"
+    when: ansible_nodename == "node1"
+    notify: restart_postgres
+
+    # RESTRART must be configured using handler

@@ -1,0 +1,15 @@
+# *************************************PostgreSQL Repository and Installation || INSTALL POSTGRESQL****************************
+
+
+  - name: Install pgpool  repository
+    yum:
+     name: https://www.pgpool.net/yum/rpms/{{ pgpool_repo_version }}/redhat/rhel-7-x86_64/pgpool-II-release-{{ pgpool_repo_version }}-1.noarch.rpm
+     state: present
+    when: ansible_nodename == "pgpool1" or ansible_nodename == "pgpool2" 
+
+  - name: Install pgpool  
+    yum:
+     name: pgpool-II-pg{{ pg_version }}-*
+     state: present
+    when: ansible_nodename == "pgpool1" or ansible_nodename == "pgpool2"
+

@@ -1,0 +1,28 @@
+---
+# defaults file for database_solution
+node1id: 1
+node1name: node1
+node1ip: 192.168.43.21
+
+node2id: 2
+node2name: node2
+node2ip: 192.168.43.22
+
+barman1name: barman
+barman1ip: 192.168.43.23
+
+subnet: 192.168.43.0/24
+ano_subnet: 0.0.0.0/0
+local_user: postgres
+local_db: postgres
+pg_version: 12
+pg_port: 5432
+
+repmgr_user: repmgr
+repmgr_db: repmgr
+barman_user: barman
+barman_streaming_user: streaming_barman
+
+node1dns: 192.168.43.21   primary
+node2dns: 192.168.43.22   standby1
+node3dns: 192.168.43.23   barman

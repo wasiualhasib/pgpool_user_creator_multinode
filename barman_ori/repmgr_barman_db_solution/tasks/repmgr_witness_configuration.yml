@@ -1,0 +1,29 @@
+
+# **************************************** repmgr basic configuration node 3 *********************************
+
+  - name: Configure repmgr.conf standby node3 basic configuration
+    become: true
+    become_user: root
+    blockinfile:
+     dest: /etc/repmgr/{{ pg_version }}/repmgr.conf
+     marker: "# {mark} ANSIBLE MANAGED BLOCK insertion 1"
+     block: |
+        #************** repmgr basic configuration
+        node_id={{witnessNodeId}}
+        node_name={{witnessNodeName}}
+        conninfo='host={{witnessNodeIp}}  user=repmgr dbname=repmgr connect_timeout=2 port={{pg_port}}'
+        data_directory='/var/lib/pgsql/{{pg_version}}/data'
+        repmgrd_service_start_command='sudo /usr/bin/systemctl start repmgr-{{pg_version}}.service'
+        repmgrd_service_stop_command='sudo /usr/bin/systemctl stop repmgr-{{pg_version}}.service'
+        monitor_interval_secs=2
+        connection_check_type='ping'
+        monitoring_history=yes
+        log_status_interval=60
+        primary_visibility_consensus=true
+
+        reconnect_attempts=8
+        reconnect_interval=10
+        pg_bindir='/usr/pgsql-{{pg_version}}/bin'
+        log_file='/var/log/repmgr/repmgr.log'
+
+    when: ansible_nodename == "pgbackup"

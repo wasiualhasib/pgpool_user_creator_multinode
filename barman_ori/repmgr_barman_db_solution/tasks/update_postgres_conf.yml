@@ -1,0 +1,22 @@
+# ************************************** PostgreSQL postgresql.conf file configuration******************************
+  - name: Configure postgresql.conf file
+    become: true
+    become_user: postgres
+    blockinfile:
+     dest: /var/lib/pgsql/{{ pg_version }}/data/postgresql.conf
+     block: |
+        listen_addresses='*'
+        port= {{ pg_port }}
+        max_wal_senders = 10
+        max_replication_slots = 10
+        wal_level = 'replica'
+        wal_log_hints = on
+        hot_standby = on
+        archive_mode = on
+        log_timezone = 'Asia/Dhaka'
+        shared_preload_libraries = 'repmgr'
+        archive_command = '/usr/bin/barman-wal-archive  {{barman1ip}} pg %p'
+        #synchronous_standby_names = 'barman_receive_wal' #This need to enable for barman steraming replication
+        #archive_command='rsync -a %p  barman@192.168.43.25:/var/lib/barman/pg/incoming/%f'
+    when: ansible_nodename == "node1"
+

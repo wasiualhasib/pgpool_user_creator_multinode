@@ -1,0 +1,27 @@
+- name: PostgreSQL , repmgr and Barman Configuration for streaming replication
+  hosts: primary
+  become: true
+  vars:
+    date: "{{ lookup('pipe', 'date +%Y%m%d-%H%M') }}"
+  vars_files:
+   - node.yml
+  tasks:
+  - name: Create database
+    become: true
+    become_user: postgres
+    command: psql -c "CREATE DATABASE test";
+
+  - name: Create table t1 
+    become: true
+    become_user: postgres
+    command: psql -d test -U postgres  -c "  CREATE TABLE t1(a int); INSERT INTO t1(a) SELECT * FROM generate_series(1,10000)";
+
+  - name: Create table t2 
+    become: true
+    become_user: postgres
+    command: psql -d test -U postgres  -c " CREATE TABLE t2(a int); INSERT INTO t2(a) SELECT * FROM generate_series(1,10000)";
+
+  - name: Create table t3 
+    become: true
+    become_user: postgres
+    command: psql -d test -U postgres  -c " CREATE TABLE t3(a int); INSERT INTO t3(a) SELECT * FROM generate_series(1,10000)";

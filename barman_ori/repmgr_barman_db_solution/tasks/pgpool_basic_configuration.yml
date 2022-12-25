@@ -1,0 +1,181 @@
+# *************************************PostgreSQL Repository and Installation || INSTALL POSTGRESQL****************************
+
+  - name: Configure pgpool  | PGPOOL CONFIG
+    become: true
+    become_user: root
+    blockinfile:
+     dest: /etc/pgpool-II/pgpool.conf
+     marker: "# {mark} ANSIBLE MANAGED BLOCK insertion 1"
+     block: |
+        #************** pgpool basic configuration
+        
+        #===============================================================
+        #======================Connections==============================
+        #===============================================================
+
+        backend_clustering_mode = 'streaming_replication'
+        listen_addresses = '*'
+        port = 9999
+        socket_dir = '/var/run/postgresql'
+
+        pcp_listen_addresses = '*'
+        pcp_port = 9898
+        pcp_socket_dir = '/var/run/postgresql'
+        listen_backlog_multiplier = 2
+        serialize_accept = off
+
+        backend_hostname0 = '10.16.71.178'
+        backend_port0 = 5678
+        backend_weight0 = 1
+        backend_data_directory0 = '/data/pgsql/data'
+        backend_flag0 = 'ALLOW_TO_FAILOVER'
+        backend_application_name0 = 'server1'
+
+        backend_hostname1 = '10.16.71.179'
+        backend_port1 = 5678
+        backend_weight1 = 1
+        backend_data_directory1 = '/data/pgsql/data'
+        backend_flag1 = 'ALLOW_TO_FAILOVER'
+        backend_application_name1 = 'server2'
+
+        backend_hostname2 = '10.16.71.180'
+        backend_port2 = 5678
+        backend_weight2 = 1
+        backend_data_directory2 = '/data/pgsql/data'
+        backend_flag2 = 'ALLOW_TO_FAILOVER'
+        backend_application_name2 = 'server3'
+
+        enable_pool_hba = on
+        pool_passwd = 'pool_passwd'
+        authentication_timeout = 1min
+        allow_clear_text_frontend_auth = off
+        ssl_ciphers = 'HIGH:MEDIUM:+3DES:!aNULL'
+        ssl_prefer_server_ciphers = off
+        ssl_ecdh_curve = 'prime256v1'
+        ssl_dh_params_file = ''
+
+        #===============================================
+        #===================LOGS========================
+        #===============================================
+
+        log_destination = 'stderr'
+        log_line_prefix = '%m: %a pid %p: '   # printf-style string to output at beginning of each log line.
+        log_connections = off
+        log_disconnections = off
+        log_hostname = off
+        log_statement = off
+        log_per_node_statement = off
+        log_client_messages = off
+        log_standby_delay = 'if_over_threshold'
+        syslog_facility = 'LOCAL0'
+        syslog_ident = 'pgpool'
+        log_min_messages = warning             # values in order of decreasing detail:
+        logging_collector = on
+        log_directory = '/var/log/pgpool_log'
+        log_filename = 'pgpool-%Y-%m-%d.log'
+        log_file_mode = 0600
+        log_truncate_on_rotation = off
+        log_rotation_age = 1d
+
+        pid_file_name = '/var/run/pgpool/pgpool.pid'
+        logdir = '/tmp'
+        replicate_select = off
+        insert_lock = off
+        lobj_lock_table = ''
+        replication_stop_on_mismatch = off
+        failover_if_affected_tuples_mismatch = off
+
+        load_balance_mode = on
+        ignore_leading_white_space = on
+        read_only_function_list = ''
+        write_function_list = ''
+        primary_routing_query_pattern_list = ''
+        database_redirect_preference_list = ''
+        app_name_redirect_preference_list = ''
+        allow_sql_comments = off
+        disable_load_balance_on_write = 'trans_transaction'
+        dml_adaptive_object_relationship_list= ''
+        statement_level_load_balance = off
+
+        #====================================================================
+        #==========================Streaming Replication Mode================
+        #====================================================================
+
+        sr_check_period = 1
+        sr_check_user = 'pgpool'
+        sr_check_password = 'StrongPassword4321'
+        sr_check_database = 'postgres'
+        delay_threshold = 10000000
+        follow_primary_command = ''
+
+
+        #====================================================================
+        #==========================Health Check =============================
+        #====================================================================
+
+        health_check_period = 5
+        health_check_timeout = 60
+        health_check_user = 'pgpool'
+        health_check_password = ''
+        health_check_database = ''
+        health_check_max_retries = 10
+        health_check_retry_delay = 6
+        connect_timeout = 10000
+
+        #================================================
+        #=============Failover and Fallback==============
+        #================================================
+
+        failover_command = ''
+        failback_command = ''
+        failover_on_backend_error = on
+        detach_false_primary = off
+        search_primary_node_timeout = 5min
+
+        #================================================
+        #===================WATCHDOG=====================
+        #================================================
+
+        use_watchdog = on
+        ping_path = '/bin'
+        hostname0 = '10.16.71.175'
+        wd_port0 = 9000
+        pgpool_port0 = 9999
+        hostname1 = '10.16.71.176'
+        wd_port1 = 9000
+        pgpool_port1 = 9999
+        wd_authkey = ''
+
+        #=========================================================================
+        #============VIP CONFIGURE AND MONITOR INTERFACE WITH VIP=================
+        #=========================================================================
+
+
+        delegate_IP = '10.16.71.181'
+        if_cmd_path = '/sbin'
+        if_up_cmd = '/usr/bin/sudo /sbin/ip addr add $_IP_$/24 dev ens192 label ens192:0'
+        if_down_cmd = '/usr/bin/sudo /sbin/ip addr del $_IP_$/24 dev ens192'
+        arping_path = '/usr/sbin'
+        arping_cmd = '/usr/bin/sudo /usr/sbin/arping -U $_IP_$ -w 1 -I ens192'
+        failover_when_quorum_exists = on
+        failover_require_consensus = on
+        allow_multiple_failover_requests_from_node = off
+        enable_consensus_with_half_votes = off
+        wd_lost_node_removal_timeout = 0s
+        wd_no_show_node_removal_timeout = 0s
+        wd_monitoring_interfaces_list = 'ens192'
+        wd_lifecheck_method = 'heartbeat'
+        wd_interval = 10
+
+
+        heartbeat_hostname0 = '10.16.71.175'
+        heartbeat_port0 = 9694
+        heartbeat_device0 = ''
+        heartbeat_hostname1 = '10.16.71.176'
+        heartbeat_port1 = 9694
+        heartbeat_device1 = ''
+
+        wd_heartbeat_keepalive = 2
+        wd_heartbeat_deadtime = 30
+    when: ansible_nodename == "pgpool1" or  ansible_nodename == "pgpool2" 
+

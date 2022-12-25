@@ -1,0 +1,40 @@
+# *************************************PostgreSQL Repository and Installation || INSTALL POSTGRESQL****************************
+
+  - name: Install keepalived  
+    yum:
+     name: keepalived
+     state: present
+    when: ansible_nodename == "pgpool1" or ansible_nodename == "pgpool2"
+
+  - name: Configure keepalived
+    become: true
+    become_user: root
+    blockinfile:
+     dest: /etc/keepalived/keepalived.conf
+     marker: "# {mark} ANSIBLE MANAGED BLOCK insertion 1"
+     block: |
+        #************** pgpool basic configuration
+        ! Configuration File for keepalived
+
+        global_defs {
+        }
+
+        vrrp_instance VI_1 {
+            track_interface {
+              ens192
+            }
+            state MASTER
+            interface ens192
+            virtual_router_id 1
+            priority 100
+            advert_int 1
+            unicast_src_ip 10.16.71.147
+            unicast_peer {
+              10.16.71.148
+            }
+            virtual_ipaddress {
+                10.16.71.154
+            }
+        }    
+    when: ansible_nodename == "pgpool1" or ansible_nodename == "pgpool2"
+

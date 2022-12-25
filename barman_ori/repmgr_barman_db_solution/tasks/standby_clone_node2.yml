@@ -1,0 +1,8 @@
+# **************************************** Standby Clone ********************************************
+  - name: standby clone form primary
+    become: true
+    become_user: postgres
+    command: /usr/pgsql-{{ pg_version }}/bin/repmgr -f /etc/repmgr/{{ pg_version }}/repmgr.conf  -h "{{node1ip}}" -p "{{pg_port}}"  -d repmgr -U repmgr standby clone -F
+    when: ansible_nodename == "node2"
+
+

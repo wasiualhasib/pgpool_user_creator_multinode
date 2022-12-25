@@ -1,0 +1,50 @@
+# **************************************** Activating  Barman  ********************************************
+
+  - name:  barman slot create
+    become: true
+    become_user: barman
+    command: barman receive-wal --create-slot pg
+    ignore_errors: yes
+    when: ansible_nodename == "pgbackup"
+
+  - name: barman switch wal log
+    become: true
+    become_user: barman
+    command: barman switch-xlog --force --archive pg
+    ignore_errors: yes
+    when: ansible_nodename == "pgbackup"
+
+  - name: wait for creating slot automatically for 15 second
+    wait_for:
+     timeout: 15
+    when: ansible_nodename == "pgbackup"
+
+  - name: Create physical_one physical slot for barman if doesn't exist
+    become_user: postgres
+    postgresql_slot:
+     slot_name: barman_slot
+     db: postgres
+    ignore_errors: yes
+    when: ansible_nodename == "node1"
+
+  - name: barman cron run
+    become: true
+    become_user: barman
+    ignore_errors: yes
+    command: barman cron
+    when: ansible_nodename == "pgbackup"
+
+  - name: barman check run
+    become: true
+    become_user: barman
+    ignore_errors: yes
+    command: barman check pg
+    when: ansible_nodename == "pgbackup"
+  
+  - name: barman backup pg
+    become: true
+    become_user: barman
+    ignore_errors: yes
+    command: barman backup pg
+    when: ansible_nodename == "pgbackup" 
+

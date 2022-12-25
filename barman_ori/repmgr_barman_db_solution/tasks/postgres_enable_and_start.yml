@@ -1,0 +1,9 @@
+# **************************************** DTABASE  enable and starting *****************************************
+  - name: OnBoot enable postgresql
+    become: true
+    service: 
+     name: postgresql-{{ pg_version }}
+     state: started
+     enabled: yes
+    when: ansible_nodename == "node1"
+ 

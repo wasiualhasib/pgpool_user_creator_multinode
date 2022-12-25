@@ -1,0 +1,6 @@
+  - name: Start stanbdy postgres
+    service: 
+     name: postgresql-{{ pg_version }}
+     state: started
+     enabled: yes
+    when: ansible_nodename == "node3"

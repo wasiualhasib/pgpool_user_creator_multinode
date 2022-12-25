@@ -1,0 +1,12 @@
+# ************************************** PostgreSQL postgresql.conf file configuration******************************
+  - name: Configure postgresql.conf file
+    become: true
+    become_user: postgres
+    blockinfile:
+     dest: /var/lib/pgsql/{{ pg_version }}/data/postgresql.conf
+     block: |
+        listen_addresses='*'
+        port= {{ pg_port }}
+        shared_preload_libraries = 'repmgr'
+    when: ansible_nodename == "pgbackup"
+

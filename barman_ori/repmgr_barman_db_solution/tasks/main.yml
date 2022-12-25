@@ -1,0 +1,152 @@
+---
+- import_tasks: gather_host_info.yml  # host information
+  tags: gather_host_info
+
+  #*******************Host File*************************
+- import_tasks: configure_host_file_entry.yml
+  tags: host_file_entry
+
+
+  #********************** INSTALLATION**********************************
+- import_tasks: install_postgres.yml # install postgresql
+  tags: postgres_install
+
+- import_tasks: repmgr_installation.yml # install repmgr
+  tags: repmgr_install
+
+- import_tasks: barman_installation.yml # install barman
+  tags: barman_install
+  
+- import_tasks: install_pgbouncer.yml # install barman
+  tags: pgbouncer_install
+
+- import_tasks: install_pgpool.yml # install barman
+  tags: pgpool_install
+
+- import_tasks: install_keepalive.yml # install barman
+  tags: keepalive_install
+
+  #********************** SUDO USER CREATION **************************
+- import_tasks: sudo_user_creation.yml # sudo user creation
+  tags: sudo_user_creation
+
+
+  #********************** POSTGRES DATA INSTANCE CREATE ****************
+- import_tasks: postgres_instance_create.yml
+  tags: postgres_instance_create
+
+  #********************** POSTGRESQL CONFIGURATION **********************
+- import_tasks: update_postgres_conf.yml # update postgresql.conf file
+  tags: update_postgres_conf
+
+- import_tasks: update_postgres_pg_hba_conf.yml # update postgresql.conf file
+  tags: update_pg_hba_conf
+
+- import_tasks: postgres_enable_and_start.yml # start postgresql 
+  tags: postgres_start
+
+
+  #************************* DATABASE AND USER CREATION******************
+- import_tasks: postgres_user_and_db_creation_for_repmgr.yml # create repmgr user and database
+  tags: postgres_repmgr_db
+
+- import_tasks: barman_user_and_db_creation.yml # barman user creation
+  tags: postgres_barman_db
+  #************************* REPMGR CONFIGURATION************************
+- import_tasks: repmgr_basic_configuration_node1.yml # repmgr basic configuration
+  tags: repmgr_basic_conf_node1
+
+- import_tasks: repmgr_basic_configuration_node2.yml # repmgr basic configuration
+  tags: repmgr_basic_conf_node2
+
+- import_tasks: repmgr_basic_configuration_node3.yml # repmgr basic configuration
+  tags: repmgr_basic_conf_node3
+
+- import_tasks: repmgr_witness_configuration.yml # repmgr basic configuration
+  tags: repmgr_witness_conf
+
+- import_tasks: repmgr_auto_faulover_configuration.yml # repmgr auto failover configuration
+  tags: repmgr_auto_failover
+ # **************************PRIMATY REGISTER AND REPMGR START ***********
+- import_tasks: primary_node_registration.yml # primary node registration
+  tags: primary_node_registration
+
+- import_tasks: repmgr_start_node1.yml # repmgr start
+  tags: repmgr_start_node1
+
+  #***************************BARMAN CONFIGURATION***************
+- import_tasks: barman_configuration.yml # barman configuration barman.conf and pg.conf
+  tags: barman_conf
+
+- import_tasks: active_barman.yml # activate barman 
+  tags: activate_barman
+
+- import_tasks: barman_failover_script.yml # copy scripts
+  tags: barman_script
+
+  #**************************** NODE 2 *************************
+- import_tasks: standby_clone_node2.yml # node registration
+  tags: standby_clone_node2
+
+- import_tasks: standby_postgresql_start_node2.yml # star postgresql
+  tags: standby_postgres_start_node2
+
+- import_tasks: standby_register_node2.yml # node registration
+  tags: standby_register_node2
+
+- import_tasks: repmgr_start_node2.yml # repmgr start
+  tags: repmgr_start_node2
+  # ***************************** NODE 3 ***********************
+- import_tasks: standby_clone_node3.yml # node registration
+  tags: standby_clone_node3
+
+- import_tasks: standby_postgresql_start_node3.yml # star postgresql
+  tags: standby_postgres_start_node3
+
+- import_tasks: standby_register_node3.yml # node registration
+  tags: standby_register_node3
+
+- import_tasks: repmgr_start_node3.yml # repmgr start
+  tags: repmgr_start_node3
+  #***************************** WITNESS NODE ***************
+- import_tasks: update_postgres_witness_conf.yml
+  tags: witness_postgres_conf
+
+- import_tasks: update_postgres_witness_pg_hba_conf.yml
+  tags: witness_postgres_pg_hba_conf
+
+- import_tasks: witness_postgresql_start.yml # star postgresql
+  tags: witness_postgres_start
+
+- import_tasks: postgres_user_and_db_creation_for_repmgr_witness.yml # star postgresql
+  tags: witness_postgres_db
+
+- import_tasks: witness_register.yml # node registration
+  tags: witness_register
+
+- import_tasks: repmgr_start_node4.yml # repmgr start
+  tags: repmgr_start_node4
+  #***************************sync option add at node1 ***************************
+- import_tasks: sync_replication_with_barman.yml # add sysnc_replication in postgresql.conf
+  tags: sync_with_barman
+ 
+- import_tasks: barman_backup.yml # add sysnc_replication in postgresql.conf
+  tags: barman_backup
+
+  #*************************** pgpool1 and pgpool2 configuration  ***************************
+
+- import_tasks: pgpool_basic_configuration.yml # add sysnc_replication in postgresql.conf
+  tags: pgpool_config
+
+- import_tasks: pgbouncer_basic_configuration.yml # add sysnc_replication in postgresql.conf
+  tags: pgbouncer_config
+
+- import_tasks: keepalive_basic_configuration.yml # add sysnc_replication in postgresql.conf
+  tags: keepalive_config
+
+- import_tasks: update_pgpool_pool_hba_conf.yml # add sysnc_replication in postgresql.conf
+  tags: pgpool_hba
+
+  #***********************IMPORTANT******************
+  # Need to make sure password less ssh enable barman to postgres user example: node1: ssh barman@192.168.43.25 node5=barman: ssh postgres@192.168.43.21 should be password less and viceversa
+  # Restart or reload should be done through HANDLER, but handler will execute it at the end of the whole execution. This point you must need to remember.

@@ -1,0 +1,22 @@
+# **************************************** DTABASE  Repmgr DB and User Creation *****************************************
+
+  - name: repmgr user creation | DB USER NODE 1
+    become: true
+    become_user: postgres
+    command: createuser --superuser "{{repmgr_user}}" -w -p {{ pg_port }}
+    when: ansible_nodename == "node1"
+
+  - name: repmgr db creation | DB DATABASE NODE 1
+    become: true
+    become_user: postgres
+    command: createdb --owner="{{repmgr_user}}" "{{repmgr_db}}" -p {{ pg_port }}
+    when: ansible_nodename == "node1"
+
+
+  - name: repmgr default search path | DB DEFAULT SEARCH PATH NODE 1
+    become: true
+    become_user: postgres
+    command: psql -p {{ pg_port }}  -c  "ALTER USER {{repmgr_user}} SET search_path TO {{repmgr_db}}, public" 
+    when: ansible_nodename == "node1"
+
+

@@ -1,0 +1,11 @@
+---
+- name: Gather facts
+  hosts: all
+  become: true
+  tasks:
+  - name: Gather facts
+    setup:
+     filter: 
+       - 'ansible_distribution'
+
+

@@ -1,0 +1,10 @@
+# ****************************************PostgreSQL pg_hba.conf file configuration**********************************************
+
+  - name: add new configuration to "pool_hba.conf"
+    blockinfile:
+     dest: /etc/pgpool-II/pool_hba.conf
+     block: |
+         host    all             all             {{subnet}}                 scram-sha-256
+         host    replication     all             {{subnet}}                 scram-sha-256
+    when: ansible_nodename == "{{pgpool1name}}" or ansible_nodename == "{{pgpool2name}}"
+

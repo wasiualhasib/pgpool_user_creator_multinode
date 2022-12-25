@@ -1,0 +1,8 @@
+# **************************************** Standby Register ********************************************
+  - name: standby node2 register | STANDBY REGISTER
+    become: true
+    become_user: postgres
+    command: /usr/pgsql-{{ pg_version }}/bin/repmgr -f /etc/repmgr/{{ pg_version }}/repmgr.conf  standby register -F
+    when: ansible_nodename == "node2"
+
+

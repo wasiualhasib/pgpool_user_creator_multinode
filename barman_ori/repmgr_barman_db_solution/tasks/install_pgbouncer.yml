@@ -1,9 +1,0 @@
-# *************************************PostgreSQL Repository and Installation || INSTALL POSTGRESQL****************************#
-
-
-  - name: Install pgbouncer 
-    yum:
-     name: pgbouncer
-     state: present
-    when: ansible_nodename == "pgpool1" or ansible_nodename == "pgpool2" 
-

@@ -1,6 +1,0 @@
-  - name: Start witness postgres
-    service: 
-     name: postgresql-{{ pg_version }}
-     state: started
-     enabled: yes
-    when: ansible_nodename == "pgbackup"

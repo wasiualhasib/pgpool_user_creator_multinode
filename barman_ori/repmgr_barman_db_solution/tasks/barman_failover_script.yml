@@ -1,9 +1,0 @@
-- name: failover script copy
-  become: yes
-  become_user: root
-  copy: 
-     src: files/barman_config_failover
-     dest: /etc/barman.d/barman_config_failover
-     owner: barman
-     group: barman
-  when: ansible_nodename == "pgbackup"

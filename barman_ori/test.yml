@@ -1,9 +1,0 @@
----
-- name: This is test file
-  become: yes
-  hosts: all
-  tasks:
-  - debug:
-     msg: "{{ group_names }}"
-    when: 
-     - "'primary' in groups['primary']"

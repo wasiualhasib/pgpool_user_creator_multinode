@@ -1,9 +1,0 @@
-
-#***********************************************Barman Backup******************
-  - name: barman backup pg
-    become: true
-    become_user: barman
-    ignore_errors: yes
-    command: barman backup pg
-    when: ansible_nodename == "pgbackup"
-

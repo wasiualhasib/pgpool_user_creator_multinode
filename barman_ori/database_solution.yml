@@ -1,5 +1,0 @@
-- name: PostgreSQL , repmgr and Barman Configuration for streaming replication
-  hosts: all
-  become: true
-  roles:
-  - repmgr_barman_db_solution

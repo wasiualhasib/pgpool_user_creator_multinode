@@ -1,0 +1,80 @@
+*************************************************************************************
+========================================Create Log Table===============================
+*************************************************************************************
+CREATE TABLE IF NOT EXISTS notification_purging_log(
+id int not null auto_increment,
+messages varchar(200),
+created_at datetime,
+primary key(id)
+);
+*************************************************************************************
+====================================Create Stored Procedure============================
+*************************************************************************************
+DROP PROCEDURE IF EXISTS sp_notification_tbl_data_purger;
+DELIMITER $$
+CREATE PROCEDURE `sp_notification_tbl_data_purger`(IN from_hour SMALLINT, IN to_hour SMALLINT,IN delete_data_per_day INT,IN notification_retain_day_interval INT)
+BEGIN
+    DECLARE retain_days datetime;
+    DECLARE delete_days datetime;
+    DECLARE notification_delete_day_interval INT;
+    DECLARE notification_log_delete_interval INT;
+    DECLARE main_tbl_name varchar(100);
+    DECLARE log_tbl_name varchar(100);
+	IF HOUR(CURRENT_TIME())>=from_hour AND HOUR(CURRENT_TIME())<to_hour THEN 
+		  SET notification_delete_day_interval=1;
+		  SET notification_log_delete_interval=7;
+		  SET retain_days=(SELECT CAST(DATE_FORMAT(DATE_SUB(
+		  		(SELECT max(created_at) from notifications)  -- New Changed part
+		  		,INTERVAL notification_retain_day_interval-1 DAY),"%Y-%m-%d") as datetime)); -- 5 days data will keep
+		  SET delete_days =(SELECT  CAST(DATE_FORMAT((DATE_ADD(min(created_at),INTERVAL notification_delete_day_interval DAY)),"%Y-%m-%d") as datetime) 
+		  				FROM notifications); -- check old data from table notifications
+	    	IF retain_days>=delete_days THEN
+	      	    DELETE FROM notifications where created_at<delete_days LIMIT delete_data_per_day;
+	      	    INSERT INTO notification_purging_log(id,messages,created_at) VALUES (null,CONCAT('Notifications table| Data purging done retain ',notification_retain_day_interval,' days data till date: ',retain_days,' | and deleted total data: ',ROW_COUNT(),' of date: ',DATE_SUB(delete_days,INTERVAL 1 DAY)),now());
+	      	    DELETE FROM notification_purging_log WHERE created_at<=(SELECT CAST(DATE_FORMAT(DATE_SUB(now(),INTERVAL 8 DAY),"%Y-%m-%d") as datetime));
+	        ELSE
+	      	    INSERT INTO notification_purging_log(id,messages,created_at) VALUES (null,CONCAT(' Notifications table | No data found for purging because RetainDate: ',retain_days,'less than or equal delete date:',DATE_SUB(delete_days,INTERVAL 1 DAY)),now());
+	        END IF;
+	ELSE
+	    INSERT INTO notification_purging_log(id,messages,created_at) VALUES(null,CONCAT(' Notifications table| Data not purge because it is in ideal time hour: ',HOUR(CURRENT_TIME()),IF(HOUR(CURRENT_TIME())<12,' AM ',' PM '),'. Hour must be within: ',from_hour,if(from_hour<12, ' AM ',' PM '),'to:',to_hour,IF(from_hour<12,' AM' ,' PM')), now());
+	END IF;
+END$$
+DELIMITER ;
+
+
+*************************************************************************************
+======================================Create Events===================================
+*************************************************************************************
+DROP EVENT IF EXISTS ev_notification_table_purger;
+CREATE EVENT ev_notification_table_purger
+	ON SCHEDULE EVERY 5 MINUTE 
+	ON COMPLETION PRESERVE ENABLE
+	DO CALL sp_notification_tbl_data_purger(0,5,100000,7);
+
+
+
+*************************************************************************************
+=================================== Table Optimizer==================================== 
+*************************************************************************************
+
+DROP PROCEDURE  IF EXISTS sp_table_optimizer;
+DELIMITER $$
+CREATE PROCEDURE sp_table_optimizer()
+BEGIN	
+	    OPTIMIZE TABLE notifications ;
+    	    OPTIMIZE TABLE notification_purging_log;
+    	    INSERT INTO notification_purging_log (messages,created_at) VALUES(CONCAT('OPTIMIZE TABLE CALLED FragRate:'),now());
+END $$
+DELIMITER ;
+
+
+*************************************************************************************
+================================ Table Optimizer Event ================================== 
+*************************************************************************************
+DROP EVENT IF EXISTS ev_table_optimizer;
+CREATE EVENT ev_table_optimizer
+	ON SCHEDULE EVERY 1 DAY 
+	STARTS  (TIMESTAMP(CURRENT_DATE) + INTERVAL 5 HOUR + INTERVAL 15 MINUTE)
+	ON COMPLETION PRESERVE ENABLE
+	DO CALL sp_table_optimizer();
+
